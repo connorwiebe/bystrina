@@ -1,14 +1,14 @@
 {
   "name": "bystrina",
   "version": "1.0.0",
-  "description": "",
+  "description": "A command line interface for downloading torrents.",
   "main": "app.js",
   "type": "module",
   "bin": {
     "bystrina": "./app.js"
   },
   "scripts": {},
-  "author": "",
+  "author": "Connor Wiebe",
   "license": "ISC",
   "dependencies": {
     "as-table": "^1.0.47",
@@ -20,5 +20,9 @@
     "pretty-ms": "^5.0.0",
     "thepiratebay": "^1.4.7",
     "webtorrent": "^0.103.1"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/connorwiebe/bystrina.git"
+  },
 }
