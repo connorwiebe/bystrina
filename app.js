@@ -6,10 +6,13 @@ const inquirer = require('inquirer')
 const homedir = require('os').homedir()
 const asTable = require ('as-table')
 const { sendMessage, createBus } = require('./pm2')
-const EventEmitter = require('events')
-const events = new EventEmitter
 let allowRendering = false
 let symbolStore = {}
+
+process.on('uncaughtException', err => {
+  process.exit(1)
+  console.log(err)
+})
 
 const render = (data => {
   const symbols = ['⣾','⣽','⣻','⢿','⡿','⣟','⣯','⣷']
@@ -51,18 +54,22 @@ const render = (data => {
 let bus
 ;(async () => {
   bus = await createBus()
-  bus.on('list', ({ data }) => render(data))
+  bus.on('list', ({ data }) => {
+    render(data)
+  })
 })()
 
 program
 .command('search <q>')
 .description('Search for a torrent to download.')
 .action(async q => {
+
   let torrents = await PirateBay.search(q)
   if (!torrents.length) {
     console.log(`No results.`)
     process.exit(0)
   }
+
   process.stdout.write('\033c')
   const { selection } = await inquirer.prompt([{
     type: 'list',
@@ -71,9 +78,9 @@ program
     prefix: `${torrents.length} Results:`,
     choices: () => torrents.map((item, i) => `#${i+1}: ${item.name} | ${item.size} | seeders: ${item.seeders}`)
   }])
+
   const { magnetLink } = torrents.filter(({ name }) => selection.includes(name)).pop()
   await sendMessage({ type: 'add', data: { id: magnetLink } })
-  console.log(`Adding torrent...`)
   allowRendering = true
 })
 
@@ -89,9 +96,11 @@ program
 .command('remove')
 .description('Select a torrent to remove.')
 .action(async () => {
+
   await sendMessage({ type: 'torrents', data: {} })
   bus.on('torrents', async ({ data: torrents }) => {
     process.stdout.write('\033c')
+
     const { selection } = await inquirer.prompt([{
       type: 'list',
       name: 'selection',
@@ -99,6 +108,7 @@ program
       prefix: `${torrents.length} Results:`,
       choices: () => torrents.map((item, i) => `#${i+1}: ${item.title}`)
     }])
+
     const { infoHash } = torrents.filter(({ title }) => selection.includes(title)).pop()
     await sendMessage({ type: 'remove', data: { id: infoHash } })
     console.log(`Torrent removed.`)
@@ -111,6 +121,7 @@ program
 .description(`Manually add a torrent using its info hash or magnet url.`)
 .action(async id => {
   await sendMessage({ type: 'add', data: { id } })
+  allowRendering = true
 })
 
 program.parse(process.argv)

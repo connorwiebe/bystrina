@@ -1,6 +1,6 @@
 {
   "name": "bystrina",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "A command line interface for downloading torrents.",
   "main": "app.js",
   "type": "module",
@@ -24,5 +24,5 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/connorwiebe/bystrina.git"
-  },
+  }
 }

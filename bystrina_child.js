@@ -4,64 +4,91 @@ const prettyMs = require('pretty-ms')
 const parseTorrent = require('parse-torrent')
 const day = require('dayjs')
 const fs = require('fs').promises
-
 const client = new WebTorrent()
-client.on('error', err => console.log(err))
 
-let cachedHistory
-;(async () => cachedHistory = await getHistory())()
+client.on('error', err => {
+  process.exit(1)
+  console.log(err)
+})
+process.on('uncaughtException', err => {
+  process.exit(1)
+  console.log(err)
+})
+
+;(function sleep () {
+  setTimeout(() => {
+    if (!client.progress) {
+      process.exit(0)
+    }
+    sleep()
+  }, 3600000)
+})()
 
 process.on('message', async ({ type, data: { id } }) => {
   if (id) id = parseTorrent(id).infoHash
 
   switch (type) {
-    case 'add':
+    case 'add': {
 
+      const torrentData = await getTorrents()
+      process.send({ type: 'list', data: torrentData })
+
+      const cachedHistory = await getHistory()
       const exists = [...cachedHistory, ...client.torrents].find(({ infoHash }) => infoHash === id)
-      if (exists) return process.send({ type: 'list', data: getTorrents() })
+      if (exists) {
+        const torrentData = await getTorrents()
+        return process.send({ type: 'list', data: torrentData })
+      }
 
       client.add(id, { path: `${homedir}/Downloads` }, torrent => {
-
         let now = Date.now()
         torrent.on('download', async () => {
           if ((now + 200) < Date.now()) {
-            process.send({ type: 'list', data: getTorrents() })
+            const torrentData = await getTorrents()
+            process.send({ type: 'list', data: torrentData })
             now = Date.now()
           }
         })
 
         torrent.on('done', async () => {
           client.remove(torrent.infoHash)
-          cachedHistory = await setHistory([...cachedHistory, ...[{
+          await setHistory([...cachedHistory, ...[{
             infoHash: torrent.infoHash,
             title: torrent.name,
             size: formatBytes(torrent.length),
             completed: day(Date.now()).format('YYYY-MM-DD HH:mm:ss')
           }]])
-          process.send({ type: 'list', data: getTorrents() })
+          const torrentData = await getTorrents()
+          process.send({ type: 'list', data: torrentData })
         })
       })
       break
+    }
 
-    case 'list':
-      process.send({ type: 'list', data: getTorrents() })
+    case 'list': {
+      const torrentData = await getTorrents()
+      process.send({ type: 'list', data: torrentData })
       break
+    }
 
-    case 'torrents':
-      process.send({ type: 'torrents', data: getTorrents({ trunc: false }) })
+    case 'torrents': {
+      const torrentData = await getTorrents({ trunc: false })
+      process.send({ type: 'torrents', data: torrentData })
       break
+    }
 
-    case 'remove':
+    case 'remove': {
+      const cachedHistory = await getHistory()
       const newHistory = cachedHistory.filter(({ infoHash }) => infoHash !== id)
-      cachedHistory = await setHistory(newHistory)
-
+      await setHistory(newHistory)
       const torrent = client.torrents.filter(({ infoHash }) => infoHash === id).pop()
       if (torrent) client.remove(torrent.infoHash)
       break
+    }
   }
 })
 
-function getTorrents ({ trunc = true } = { trunc: false }) {
+async function getTorrents ({ trunc = true } = { trunc: false }) {
 
   const torrents = client.torrents.map(torrent => {
     return {
@@ -76,12 +103,14 @@ function getTorrents ({ trunc = true } = { trunc: false }) {
     }
   })
 
+  const cachedHistory = await getHistory()
+
    // TODO: sort by completion date with active at top
   const list = [...cachedHistory, ...torrents].map(({
     completed,
     peers = '0',
     remaining = '0ms',
-    size,
+    size = '0 KB',
     downloaded,
     speed = '0 B/s',
     progress = '100.0%',
