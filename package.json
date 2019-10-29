@@ -19,7 +19,7 @@
     "pm2": "^3.5.1",
     "pretty-ms": "^5.0.0",
     "thepiratebay": "^1.4.7",
-    "webtorrent": "^0.103.1"
+    "webtorrent": "^0.107.16"
   },
   "repository": {
     "type": "git",
